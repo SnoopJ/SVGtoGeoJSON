@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
 import sys
-import json
-import copy
+import json,copy,re
 from xml.etree import ElementTree as ET
 import numpy as np
 
@@ -46,28 +45,30 @@ def main():
     shapes += xmltree.getroot().findall("./{%s}g/{%s}path"%(ns,ns)) 
 
     for s in shapes:
-        roomid = s.get('id')
+        shapeid = s.get('id')
         if ( s.tag == '{%s}rect'%ns ): 
             x = float(s.get('x'))
             y = float(s.get('y'))
             w = float(s.get('width'))
             h = float(s.get('height'))
             if ( s.get('transform') ):
+                transforms = re.findall("[a-zA-Z]+\([^\)]+\)",s.get('transform'))
                 mat = []
-                pts = []
-                for n in s.get('transform').replace('matrix(','').replace(')','').split(','):
-                    mat.append( float(n) )
-                m = np.vstack([np.resize(mat,(3,2)).transpose(), [0,0,1]])
+                pts = [[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]]
+                for t in transforms:
+                    if not t.startswith("matrix"):
+                        # don't process anything but matrix for now
+                        continue
+                    t = t.replace('matrix(','').replace(')','')
+                    mat = [ float(n) for n in re.split("[ ,]",t) ]
+ 
+                    m = np.vstack([np.resize(mat,(3,2)).transpose(), [0,0,1]])
 
-                pts.append( transformPoint(np.dot(m,[x,y,1])[0:2]) )
-                pts.append( transformPoint(np.dot(m,[x+w,y,1])[0:2]) )
-                pts.append( transformPoint(np.dot(m,[x+w,y+h,1])[0:2]) )
-                pts.append( transformPoint(np.dot(m,[x,y+h,1])[0:2]) )
-                pts.append( pts[0] )
-                geomObject(pts,name=roomid)
+                pts = [ transformPoint(np.dot(m,p+[1])[0:2]) for p in pts ]
+                geomObject(pts,name=shapeid)
             else:
-                rectObject(x,y,w,h,name=roomid)
-        # TODO: paths
+                rectObject(x,y,w,h,name=shapeid)
+            # TODO: paths
 
     print(json.dumps(geodata, indent=3))
          
