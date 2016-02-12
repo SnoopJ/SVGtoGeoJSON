@@ -5,6 +5,9 @@ import json,copy,re
 from xml.etree import ElementTree as ET
 import numpy as np
 
+np.cosd = lambda x: np.cos(x*np.pi/180)
+np.sind = lambda x: np.sin(x*np.pi/180)
+
 xscale = 0.01
 yscale = 0.01
 
@@ -25,6 +28,13 @@ def transformPoint(pt):
     # Inkscape uses +y up coordinates internally
     # this doesn't invert the y-axis for now, but might at some point...
     return np.add(np.multiply(pt,[1*xscale,1*yscale]),[0,0]).tolist()
+
+def matrixTransform(L,R):
+    # L is given in SVG order, abcdef, zero-padded if 6 elements not given
+    L += ([0]*(6-len(L)) if len(L) < 6 else [])
+    L = np.vstack( [ np.reshape( L, (3,2) ).transpose(), [0,0,1] ] )
+    return np.dot( L, R )
+    
 
 def main():
     ns="http://www.w3.org/2000/svg"
@@ -53,25 +63,36 @@ def main():
             y = float(s.get('y'))
             w = float(s.get('width'))
             h = float(s.get('height'))
-            pts = [ [x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y] ]
+            pts = [ np.reshape(p+[1],(3,1)) for p in [ [x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y] ] ]
 
             transforms = re.findall("[a-zA-Z]+\([^\)]+\)",s.get('transform') or '')
             # reverse order because SVG transforms apply right-to-left
             transforms.reverse()
+            mat = np.identity(3)
             for t in transforms:
-                if not t.startswith("matrix"):
-                    # don't process anything but matrix for now
-                    continue
-                t = t.replace('matrix(','').replace(')','')
-                mat = []
-                mat = [ float(n) for n in re.split("[ ,]",t) ]
+                # TODO: factor into functions to eliminate repeated calls to re.sub() and np.dot()
+                if t.startswith("matrix"):
+                    t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
+                    mat = matrixTransform( [ float(n) for n in re.split("[ ,]",t) ], mat )
+                elif t.startswith("scale"):
+                    t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
+                    n = re.split("[ ,]",t)
+                    sx = float(n[0])
+                    sy = float(n[1]) if len(n)>1 else sx # y scale is optional
+                    mat = matrixTransform( [ sx,0,0,sy,0,0 ], mat )
+                elif t.startswith("rotate"):
+                    t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
+                    n = re.split("[ ,]",t)
+                    a = float(n[0])
+                    x = float(n[1]) if len(n)>1 else None
+                    y = float(n[2]) if len(n)>1 else None
+                    mat = matrixTransform( [ np.cosd(a), np.sind(a), -np.sind(a), np.cosd(a) ], mat )
 
-                m = np.vstack([np.resize(mat,(3,2)).transpose(), [0,0,1]])
-                pts = [ np.dot(m,p+[1])[0:2] for p in pts ]
-
-            pts = [ transformPoint(p) for p in pts ]
+            pts = [ transformPoint(np.dot(mat,p)[0:2]) for p in pts ]
             geomObject(pts,name=shapeid)
-        # TODO: paths
+        elif ( s.tag == '{%s}path'%ns ): 
+            # TODO: paths
+            print >> sys.stderr, "should be handling a <path>"
 
     print(json.dumps(geodata, indent=3))
          
