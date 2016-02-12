@@ -22,6 +22,8 @@ featuretemplate = {
 }
 
 def transformPoint(pt):
+    # Inkscape uses +y up coordinates internally
+    # this doesn't invert the y-axis for now, but might at some point...
     return np.add(np.multiply(pt,[1*xscale,1*yscale]),[0,0]).tolist()
 
 def main():
@@ -51,36 +53,28 @@ def main():
             y = float(s.get('y'))
             w = float(s.get('width'))
             h = float(s.get('height'))
-            if ( s.get('transform') ):
-                transforms = re.findall("[a-zA-Z]+\([^\)]+\)",s.get('transform'))
-                mat = []
-                pts = [[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]]
-                for t in transforms:
-                    if not t.startswith("matrix"):
-                        # don't process anything but matrix for now
-                        continue
-                    t = t.replace('matrix(','').replace(')','')
-                    mat = [ float(n) for n in re.split("[ ,]",t) ]
- 
-                    m = np.vstack([np.resize(mat,(3,2)).transpose(), [0,0,1]])
+            pts = [ [x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y] ]
 
-                pts = [ transformPoint(np.dot(m,p+[1])[0:2]) for p in pts ]
-                geomObject(pts,name=shapeid)
-            else:
-                rectObject(x,y,w,h,name=shapeid)
-            # TODO: paths
+            transforms = re.findall("[a-zA-Z]+\([^\)]+\)",s.get('transform') or '')
+            # reverse order because SVG transforms apply right-to-left
+            transforms.reverse()
+            for t in transforms:
+                if not t.startswith("matrix"):
+                    # don't process anything but matrix for now
+                    continue
+                t = t.replace('matrix(','').replace(')','')
+                mat = []
+                mat = [ float(n) for n in re.split("[ ,]",t) ]
+
+                m = np.vstack([np.resize(mat,(3,2)).transpose(), [0,0,1]])
+                pts = [ np.dot(m,p+[1])[0:2] for p in pts ]
+
+            pts = [ transformPoint(p) for p in pts ]
+            geomObject(pts,name=shapeid)
+        # TODO: paths
 
     print(json.dumps(geodata, indent=3))
          
-def rectObject(x,y,w,h,name="default room"):
-    geomObject(pts=[
-        transformPoint([x,y]),
-        transformPoint([x+w,y]), 
-        transformPoint([x+w,y+h]), 
-        transformPoint([x,y+h]), 
-        transformPoint([x,y])
-    ],name=name)
-
 def geomObject(pts,name="default room"):
     f = copy.deepcopy(featuretemplate)
     f['geometry']['coordinates'] = [ pts ]
