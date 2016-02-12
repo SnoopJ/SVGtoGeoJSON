@@ -1,6 +1,6 @@
 # SVGtoGeoJSON
 
-Script for converting SVG files to GeoJSON. Created for use with [leaflet-indoor](https://github.com/cbaines/leaflet-indoor) and [Inkscape](https://inkscape.org) to facilitate easier creation of an annotated indoor map of science outreach demos.
+Script for converting SVG files to [GeoJSON](http://geojson.org/geojson-spec.html). Created for use with [leaflet-indoor](https://github.com/cbaines/leaflet-indoor) and [Inkscape](https://inkscape.org) to facilitate easier creation of an annotated indoor map of science outreach demos.
 
 ## Usage
 
