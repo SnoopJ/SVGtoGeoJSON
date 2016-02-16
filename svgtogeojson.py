@@ -4,6 +4,7 @@ import sys
 import json,copy,re
 from xml.etree import ElementTree as ET
 import numpy as np
+from more_itertools import peekable
 
 np.cosd = lambda x: np.cos(x*np.pi/180)
 np.sind = lambda x: np.sin(x*np.pi/180)
@@ -35,6 +36,8 @@ def matrixTransform(L,R):
     L = np.vstack( [ np.reshape( L, (3,2) ).transpose(), [0,0,1] ] )
     return np.dot( L, R )
     
+def getCoord(iterable):
+    return float(iterable.next())
 
 def main():
     ns="http://www.w3.org/2000/svg"
@@ -91,8 +94,56 @@ def main():
             pts = [ transformPoint(np.dot(mat,p)[0:2]) for p in pts ]
             geomObject(pts,name=shapeid)
         elif ( s.tag == '{%s}path'%ns ): 
-            # TODO: paths
             print >> sys.stderr, "should be handling a <path>"
+            pathdata = re.split("([a-zA-Z, ])",s.get('d'))
+            # split ops and their arguments, discard whitespace and commas
+            # peekable() is used instead of iter() so we can peek() at next value
+            ops = peekable( filter( (lambda str: not str.isspace() and str not in ['',',']), pathdata))
+            spot = [0,0]
+            pts = []
+            for o in ops:
+                print >> sys.stderr, "Handling op %s"%o
+                if( o.isalpha() ):
+                    if ( o == 'Z' or o == 'z' ): # close path command
+                        pts.append( pts[0] )
+                        break
+                    #elif ( o == 'M' or o == 'm' ):
+                    elif ( o == 'M' ):
+                        print >> sys.stderr, "Dealing with %s command"%o
+                        while not ops.peek().isalpha():
+                            if ( o == 'M' ):
+                                spot = [getCoord(ops),getCoord(ops)]
+                            #elif ( o == 'm' ): 
+                            #    spot[0] += getCoord(ops)
+                            #    spot[1] += getCoord(ops)
+                            print >> sys.stderr, "Appending point %s"%transformPoint(spot)
+                            pts.append(transformPoint(spot))
+                        print >> sys.stderr, "Done with M command because next token is %s"%ops.peek()
+                        print >> sys.stderr, "Done handling <path>, adding as an object..."
+                        geomObject(pts,name=shapeid)
+#                    elif ( o == 'H' ): # horizontal line command
+#                        spot[0] = getCoord(o)
+#                    elif ( o == 'h' ): 
+#                        spot[0] += getCoord(o)
+#
+#                    elif ( o == 'V' ): # vertical line command
+#                        spot[1] = getCoord(o)
+#                    elif ( o == 'v' ): 
+#                        spot[1] += getCoord(o)
+#
+#                    elif ( o == 'L' ): # line command
+#                        spot[0] = getCoord(o)
+#                        spot[1] = getCoord(o)
+#                    elif ( o == 'l' ): 
+#                        spot[0] += getCoord(o)
+#                        spot[1] += getCoord(o)
+#
+#                    # the only non-drawing directives M and Z will skip this bit
+#                    pts.append(spot)
+                else:
+                    print >> sys.stderr, "Unexpected <path> operation %s, ignoring..." % o
+        else:
+            print >> sys.stderr, "Unhandled tag %s encountered, skipping..." % s.tag
 
     print(json.dumps(geodata, indent=3))
          
