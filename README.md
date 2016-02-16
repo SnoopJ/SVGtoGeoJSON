@@ -6,6 +6,15 @@ Script for converting SVG files to [GeoJSON](http://geojson.org/geojson-spec.htm
 
 python SVGtoGeoJSON image.svg > output.json
 
+## What is supported
+
+* simple &lt;rect&gt; shapes and scale transforms thereof (as well as rotation **about the global origin**)
+* &lt;path&gt; shapes utilizing the M,m, and Z/z directives.
+
+## What isn't supported
+
+* everything else
+
 ## License
 
 The MIT License (MIT)
