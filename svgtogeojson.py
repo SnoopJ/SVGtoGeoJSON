@@ -73,10 +73,15 @@ def main():
             transforms.reverse()
             mat = np.identity(3)
             for t in transforms:
-                # TODO: factor into functions to eliminate repeated calls to re.sub() and np.dot()
+                # TODO: factor to eliminate repeated calls to re.sub() and np.dot()
                 if t.startswith("matrix"):
                     t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
                     mat = matrixTransform( [ float(n) for n in re.split("[ ,]",t) ], mat )
+                # TODO: translate, skewX, skewY transforms
+                elif t.startswith("translate"):
+                    pass
+                elif t.startswith("skew"):
+                    pass
                 elif t.startswith("scale"):
                     t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
                     n = re.split("[ ,]",t)
@@ -84,6 +89,7 @@ def main():
                     sy = float(n[1]) if len(n)>1 else sx # y scale is optional
                     mat = matrixTransform( [ sx,0,0,sy,0,0 ], mat )
                 elif t.startswith("rotate"):
+                    # TODO: rotate about a given point using translate() and this code
                     t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
                     n = re.split("[ ,]",t)
                     a = float(n[0])
@@ -91,10 +97,9 @@ def main():
                     y = float(n[2]) if len(n)>1 else None
                     mat = matrixTransform( [ np.cosd(a), np.sind(a), -np.sind(a), np.cosd(a) ], mat )
 
-            pts = [ transformPoint(np.dot(mat,p)[0:2]) for p in pts ]
+            pts = [ np.dot(mat,p)[0:2] for p in pts ]
             geomObject(pts,name=shapeid)
         elif ( s.tag == '{%s}path'%ns ): 
-            print >> sys.stderr, "should be handling a <path>"
             pathdata = re.split("([a-zA-Z, ])",s.get('d'))
             # split ops and their arguments, discard whitespace and commas
             # peekable() is used instead of iter() so we can peek() at next value
@@ -102,25 +107,19 @@ def main():
             spot = [0,0]
             pts = []
             for o in ops:
-                print >> sys.stderr, "Handling op %s"%o
                 if( o.isalpha() ):
                     if ( o == 'Z' or o == 'z' ): # close path command
                         pts.append( pts[0] )
                         break
                     elif ( o == 'M' or o == 'm' ):
-                    #elif ( o == 'M' ):
                         pts = []
-                        print >> sys.stderr, "Dealing with %s command"%o
                         while not ops.peek().isalpha():
                             if ( o == 'M' ):
                                 spot = [getCoord(ops),getCoord(ops)]
                             elif ( o == 'm' ): 
                                 spot[0] += getCoord(ops)
                                 spot[1] += getCoord(ops)
-                            print >> sys.stderr, "Appending point %s"%transformPoint(spot)
-                            pts.append(transformPoint(spot))
-                        print >> sys.stderr, "Done with M/m command because next token is %s"%ops.peek()
-                        print >> sys.stderr, "Done handling <path>, adding as an object..."
+                            pts.append(spot)
                         geomObject(pts,name=shapeid)
 #                    elif ( o == 'H' ): # horizontal line command
 #                        spot[0] = getCoord(o)
@@ -150,9 +149,8 @@ def main():
          
 def geomObject(pts,name="default room"):
     f = copy.deepcopy(featuretemplate)
-    f['geometry']['coordinates'] = [ pts ]
+    f['geometry']['coordinates'] = [[ transformPoint(pt) for pt in pts ]]
     f['properties']['tags']['name'] = name
-
     geodata['features'].append(f)
 
 if __name__ == "__main__":
