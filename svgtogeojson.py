@@ -107,18 +107,19 @@ def main():
                     if ( o == 'Z' or o == 'z' ): # close path command
                         pts.append( pts[0] )
                         break
-                    #elif ( o == 'M' or o == 'm' ):
-                    elif ( o == 'M' ):
+                    elif ( o == 'M' or o == 'm' ):
+                    #elif ( o == 'M' ):
+                        pts = []
                         print >> sys.stderr, "Dealing with %s command"%o
                         while not ops.peek().isalpha():
                             if ( o == 'M' ):
                                 spot = [getCoord(ops),getCoord(ops)]
-                            #elif ( o == 'm' ): 
-                            #    spot[0] += getCoord(ops)
-                            #    spot[1] += getCoord(ops)
+                            elif ( o == 'm' ): 
+                                spot[0] += getCoord(ops)
+                                spot[1] += getCoord(ops)
                             print >> sys.stderr, "Appending point %s"%transformPoint(spot)
                             pts.append(transformPoint(spot))
-                        print >> sys.stderr, "Done with M command because next token is %s"%ops.peek()
+                        print >> sys.stderr, "Done with M/m command because next token is %s"%ops.peek()
                         print >> sys.stderr, "Done handling <path>, adding as an object..."
                         geomObject(pts,name=shapeid)
 #                    elif ( o == 'H' ): # horizontal line command
