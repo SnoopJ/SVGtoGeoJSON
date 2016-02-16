@@ -21,7 +21,7 @@ featuretemplate = {
     },
     "geometry": {
         "type": "Polygon",
-        "coordinates": []
+        "coordinates": [[]]
     }
 }
 
@@ -35,7 +35,7 @@ def matrixTransform(L,R):
     L += ([0]*(6-len(L)) if len(L) < 6 else [])
     L = np.vstack( [ np.reshape( L, (3,2) ).transpose(), [0,0,1] ] )
     return np.dot( L, R )
-    
+
 def getCoord(iterable):
     return float(iterable.next())
 
@@ -56,12 +56,12 @@ def main():
         sys.exit(1)
 
     shapes = []
-    shapes += xmltree.getroot().findall("./{%s}g/{%s}rect"%(ns,ns)) 
-    shapes += xmltree.getroot().findall("./{%s}g/{%s}path"%(ns,ns)) 
+    shapes += xmltree.getroot().findall("./{%s}g/{%s}rect"%(ns,ns))
+    shapes += xmltree.getroot().findall("./{%s}g/{%s}path"%(ns,ns))
 
     for s in shapes:
         shapeid = s.get('id')
-        if ( s.tag == '{%s}rect'%ns ): 
+        if ( s.tag == '{%s}rect'%ns ):
             x = float(s.get('x'))
             y = float(s.get('y'))
             w = float(s.get('width'))
@@ -97,9 +97,10 @@ def main():
                     y = float(n[2]) if len(n)>1 else None
                     mat = matrixTransform( [ np.cosd(a), np.sind(a), -np.sind(a), np.cosd(a) ], mat )
 
-            pts = [ np.dot(mat,p)[0:2] for p in pts ]
+            # this is gross
+            pts = [ np.dot(mat,p)[0:2].transpose().tolist()[0] for p in pts ]
             geomObject(pts,name=shapeid)
-        elif ( s.tag == '{%s}path'%ns ): 
+        elif ( s.tag == '{%s}path'%ns ):
             pathdata = re.split("([a-zA-Z, ])",s.get('d'))
             # split ops and their arguments, discard whitespace and commas
             # peekable() is used instead of iter() so we can peek() at next value
@@ -116,25 +117,26 @@ def main():
                         while not ops.peek().isalpha():
                             if ( o == 'M' ):
                                 spot = [getCoord(ops),getCoord(ops)]
-                            elif ( o == 'm' ): 
+                            elif ( o == 'm' ):
                                 spot[0] += getCoord(ops)
                                 spot[1] += getCoord(ops)
                             pts.append(spot)
+                        print >> sys.stderr, "Path pts %s"%pts
                         geomObject(pts,name=shapeid)
 #                    elif ( o == 'H' ): # horizontal line command
 #                        spot[0] = getCoord(o)
-#                    elif ( o == 'h' ): 
+#                    elif ( o == 'h' ):
 #                        spot[0] += getCoord(o)
 #
 #                    elif ( o == 'V' ): # vertical line command
 #                        spot[1] = getCoord(o)
-#                    elif ( o == 'v' ): 
+#                    elif ( o == 'v' ):
 #                        spot[1] += getCoord(o)
 #
 #                    elif ( o == 'L' ): # line command
 #                        spot[0] = getCoord(o)
 #                        spot[1] = getCoord(o)
-#                    elif ( o == 'l' ): 
+#                    elif ( o == 'l' ):
 #                        spot[0] += getCoord(o)
 #                        spot[1] += getCoord(o)
 #
@@ -146,13 +148,13 @@ def main():
             print >> sys.stderr, "Unhandled tag %s encountered, skipping..." % s.tag
 
     print(json.dumps(geodata, indent=3))
-         
+
 def geomObject(pts,name="default room"):
     f = copy.deepcopy(featuretemplate)
-    f['geometry']['coordinates'] = [[ transformPoint(pt) for pt in pts ]]
+    for pt in pts:
+        f['geometry']['coordinates'][0].append( transformPoint(pt) )
     f['properties']['tags']['name'] = name
     geodata['features'].append(f)
 
 if __name__ == "__main__":
     main()
-
