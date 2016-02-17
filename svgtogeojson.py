@@ -25,6 +25,38 @@ featuretemplate = {
     }
 }
 
+def SVGTransforms(s,pts):
+    pts = [ np.reshape(p+[1],(3,1)) for p in pts ]
+    transforms = re.findall("[a-zA-Z]+\([^\)]+\)",s.get('transform') or '')
+    # reverse order because SVG transforms apply right-to-left
+    transforms.reverse()
+    mat = np.identity(3)
+    for t in transforms:
+        if t.startswith("matrix"):
+            t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
+            mat = matrixTransform( [ float(n) for n in re.split("[ ,]",t) ], mat )
+        # TODO: translate, skewX, skewY transforms
+        elif t.startswith("translate"):
+            pass
+        elif t.startswith("skew"):
+            pass
+        elif t.startswith("scale"):
+            t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
+            n = re.split("[ ,]",t)
+            sx = float(n[0])
+            sy = float(n[1]) if len(n)>1 else sx # y scale is optional
+            mat = matrixTransform( [ sx,0,0,sy,0,0 ], mat )
+        elif t.startswith("rotate"):
+            # TODO: rotate about a given point using translate() and this code
+            t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
+            n = re.split("[ ,]",t)
+            a = float(n[0])
+            x = float(n[1]) if len(n)>1 else None
+            y = float(n[2]) if len(n)>1 else None
+            mat = matrixTransform( [ np.cosd(a), np.sind(a), -np.sind(a), np.cosd(a) ], mat )
+    # this is gross
+    return [ np.dot(mat,p)[0:2].transpose().tolist()[0] for p in pts ]
+
 def transformPoint(pt):
     # Inkscape uses +y up coordinates internally
     # this doesn't invert the y-axis for now, but might at some point...
@@ -66,39 +98,9 @@ def main():
             y = float(s.get('y'))
             w = float(s.get('width'))
             h = float(s.get('height'))
-            pts = [ np.reshape(p+[1],(3,1)) for p in [ [x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y] ] ]
+            pts = [ [x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y] ]
+            pts = SVGTransforms(s,pts)
 
-            transforms = re.findall("[a-zA-Z]+\([^\)]+\)",s.get('transform') or '')
-            # reverse order because SVG transforms apply right-to-left
-            transforms.reverse()
-            mat = np.identity(3)
-            for t in transforms:
-                # TODO: factor to eliminate repeated calls to re.sub() and np.dot()
-                if t.startswith("matrix"):
-                    t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
-                    mat = matrixTransform( [ float(n) for n in re.split("[ ,]",t) ], mat )
-                # TODO: translate, skewX, skewY transforms
-                elif t.startswith("translate"):
-                    pass
-                elif t.startswith("skew"):
-                    pass
-                elif t.startswith("scale"):
-                    t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
-                    n = re.split("[ ,]",t)
-                    sx = float(n[0])
-                    sy = float(n[1]) if len(n)>1 else sx # y scale is optional
-                    mat = matrixTransform( [ sx,0,0,sy,0,0 ], mat )
-                elif t.startswith("rotate"):
-                    # TODO: rotate about a given point using translate() and this code
-                    t = re.sub("[a-zA-Z]+\(([^\)]+)\)","\\1",t)
-                    n = re.split("[ ,]",t)
-                    a = float(n[0])
-                    x = float(n[1]) if len(n)>1 else None
-                    y = float(n[2]) if len(n)>1 else None
-                    mat = matrixTransform( [ np.cosd(a), np.sind(a), -np.sind(a), np.cosd(a) ], mat )
-
-            # this is gross
-            pts = [ np.dot(mat,p)[0:2].transpose().tolist()[0] for p in pts ]
             geomObject(pts,name=shapeid)
         elif ( s.tag == '{%s}path'%ns ):
             pathdata = re.split("([a-zA-Z, ])",s.get('d'))
@@ -122,6 +124,7 @@ def main():
                                 spot[1] += getCoord(ops)
                             pts.append(spot)
                         print >> sys.stderr, "Path pts %s"%pts
+                        pts = SVGTransforms(s,pts)
                         geomObject(pts,name=shapeid)
 #                    elif ( o == 'H' ): # horizontal line command
 #                        spot[0] = getCoord(o)
