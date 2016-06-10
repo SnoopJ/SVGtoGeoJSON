@@ -126,27 +126,26 @@ def main():
                         print >> sys.stderr, "Path pts %s"%pts
                         pts = SVGTransforms(s,pts)
                         geomObject(pts,name=shapeid)
-#                    elif ( o == 'H' ): # horizontal line command
-#                        spot[0] = getCoord(o)
-#                    elif ( o == 'h' ):
-#                        spot[0] += getCoord(o)
-#
-#                    elif ( o == 'V' ): # vertical line command
-#                        spot[1] = getCoord(o)
-#                    elif ( o == 'v' ):
-#                        spot[1] += getCoord(o)
-#
-#                    elif ( o == 'L' ): # line command
-#                        spot[0] = getCoord(o)
-#                        spot[1] = getCoord(o)
-#                    elif ( o == 'l' ):
-#                        spot[0] += getCoord(o)
-#                        spot[1] += getCoord(o)
-#
-#                    # the only non-drawing directives M and Z will skip this bit
-#                    pts.append(spot)
+                    elif ( o == 'H' ): # horizontal line command
+                        spot[0] = getCoord(ops)
+                    elif ( o == 'h' ):
+                        spot[0] += getCoord(ops)
+                    elif ( o == 'V' ): # vertical line command
+                        spot[1] = getCoord(ops)
+                    elif ( o == 'v' ):
+                        spot[1] += getCoord(ops)
+                    elif ( o == 'L' ): # line command
+                        spot[0] = getCoord(ops)
+                        spot[1] = getCoord(ops)
+                    elif ( o == 'l' ):
+                        spot[0] += getCoord(ops)
+                        spot[1] += getCoord(ops)
+
+                    # the only non-drawing directives M and Z will skip this bit
+                    pts.append(spot)
                 else:
                     print >> sys.stderr, "Unexpected <path> operation %s, ignoring..." % o
+            geomObject(pts,name=shapeid)
         else:
             print >> sys.stderr, "Unhandled tag %s encountered, skipping..." % s.tag
 
